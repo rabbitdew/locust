@@ -1,0 +1,32 @@
+#!/bin/bash
+# First argument specifies the test to run. All nodes
+# and master need the same script at runtime.
+[ $1 == 'email' ] && STRESS_SCRIPT=stress_email-signups.py
+[ $1 == 'get' ] && STRESS_SCRIPT=stress_simple-get.py
+
+# Second argument, if set, specifies number of worker containers
+# to start. Defaults to 1. 
+[[ -n ${2} ]] && \
+  { TOTAL_WORKERS=${2}; } || \
+  { TOTAL_WORKERS=1; }
+
+# The -d option would detach the container at runtime. We're going 
+# to run a bunch of containers in the background so they all log
+# to the same terminal.
+#
+# The '--add-host' arguments make hostfile type mappings. If the
+# endpoint is behind a CDN, set a hostfile map to hit the origin 
+# directly.
+
+for ((i=1;i<=TOTAL_WORKERS;i++)); do
+    docker run \
+      -v /usr/local/bin/locust-files:/mnt/locust:ro \
+      -v /var/log/locust_csv:/tmp \
+      --name locust_worker_"${i}" \
+      --rm \
+      --add-host <SOME_HOST>:<ORIGIN_IP> \
+      locustio/locust \
+      -f /mnt/locust/${STRESS_SCRIPT} \
+      --worker \
+      --master-host=<%= @rabbitdew_locust_master -%>&
+  done
